@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState, useCallback } from "react";
+import { useSelector, useDispatch } from "react-redux";
 import {
   Search,
   Filter,
@@ -9,16 +10,25 @@ import {
   ChevronLeft,
   ChevronRight,
   RefreshCcw,
-  User,
 } from "lucide-react";
+import { toast } from "react-hot-toast";
 import CustomerCard from "./CustomerCard";
 import SearchBar from "../SearchBar";
 import UploadCSV from "../UploadCSV";
 import Modal from "../Modal";
+import {
+  setCustomers,
+  setLoading,
+  setError,
+} from "../../../slices/customerSlice";
+import { fetchCustomers } from "../../../services/operations/adminServices";
 
 const CustomerDashboard = () => {
-  const [customers, setCustomers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const dispatch = useDispatch();
+  const { customers, loading, error } = useSelector((state) => state.customers);
+  const token = useSelector((state) => state.auth.token);
+
+  // State management
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFilters, setSelectedFilters] = useState(["all"]);
   const [showFilters, setShowFilters] = useState(false);
@@ -30,51 +40,26 @@ const CustomerDashboard = () => {
 
   const itemsPerPage = 10;
 
+  const loadCustomers = useCallback(async () => {
+    try {
+      dispatch(setLoading());
+      await dispatch(fetchCustomers(token));
+    } catch (err) {
+      dispatch(setError(err.message || "Failed to fetch customers"));
+    }
+  }, [token, dispatch]);
+
   useEffect(() => {
-    // Simulate fetching data from your service
-    const fetchCustomers = async () => {
-      try {
-        // Replace this with your actual API call endpoint use krne form the services folder
-        const response = await fetch("/api/customers");
-        const data = await response.json();
-        setCustomers(data);
-        setLoading(false);
-      } catch (error) {
-        console.error("Error fetching customers:", error);
-        // Fallback data for demonstration
-        setCustomers([
-          {
-            id: 1,
-            customername: "manthan",
-            productdemand: "samsung S24 Ultra",
-            category: "Mobile",
-          },
-          {
-            id: 2,
-            customername: "soham",
-            productdemand: "sony bravia 4k oled",
-            category: "TV",
-          },
-          {
-            id: 3,
-            customername: "pragati",
-            productdemand: "apple macbook pro",
-            category: "Laptop",
-          },
-          {
-            id: 4,
-            customername: "omkar",
-            productdemand: "smart 450l double door fridge",
-            category: "Refrigerator",
-          },
-        ]);
-        setLoading(false);
-      }
-    };
+    loadCustomers();
+  }, [loadCustomers]);
 
-    fetchCustomers();
-  }, []);
+  const handleUploadComplete = async () => {
+    handleCloseModal();
+    await loadCustomers();
+    toast.success("Customer data updated successfully!");
+  };
 
+  // Handlers
   const handleSort = (key) => {
     let direction = "asc";
     if (sortConfig.key === key && sortConfig.direction === "asc") {
@@ -97,37 +82,50 @@ const CustomerDashboard = () => {
   };
 
   const toggleFilter = (status) => {
-    setSelectedFilters(
-      (prevFilters) =>
-        prevFilters.includes(status)
-          ? prevFilters.filter((filter) => filter !== status) // Remove the filter if it's already selected
-          : [...prevFilters, status] // Add the filter if it's not selected
-    );
+    if (status === "all") {
+      setSelectedFilters(["all"]);
+    } else {
+      setSelectedFilters((prevFilters) => {
+        const newFilters = prevFilters.filter((f) => f !== "all");
+        if (prevFilters.includes(status)) {
+          return newFilters.filter((f) => f !== status);
+        }
+        return [...newFilters, status];
+      });
+    }
+  };
+
+  const handleRefresh = () => {
+    loadCustomers();
   };
 
   const handleOpenModal = () => {
-    setIsModalOpen(true); // Open the modal
+    setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
-    setIsModalOpen(false); // Close the modal
+    setIsModalOpen(false);
   };
 
-  const handleUploadComplete = (response) => {
-    console.log("Uploaded data response:", response);
-    handleCloseModal(); // Close modal after upload
-  };
-
+  // Data processing
   const filteredCustomers = customers.filter((customer) => {
-    const searchString = Object.values(customer).join(" ").toLowerCase();
-    return searchString.includes(searchTerm.toLowerCase());
+    const searchMatch = Object.values(customer)
+      .join(" ")
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase());
+
+    const filterMatch =
+      selectedFilters.includes("all") ||
+      selectedFilters.includes(customer.status?.toLowerCase());
+
+    return searchMatch && filterMatch;
   });
 
   const sortedCustomers = [...filteredCustomers].sort((a, b) => {
     if (!sortConfig.key) return 0;
 
-    const aValue = a[sortConfig.key].toLowerCase();
-    const bValue = b[sortConfig.key].toLowerCase();
+    const aValue = String(a[sortConfig.key]).toLowerCase();
+    const bValue = String(b[sortConfig.key]).toLowerCase();
 
     if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
     if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
@@ -141,13 +139,29 @@ const CustomerDashboard = () => {
 
   const totalPages = Math.ceil(sortedCustomers.length / itemsPerPage);
 
+  // Error UI
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-center">
+        <p className="text-red-600 mb-4">{error}</p>
+        <button
+          onClick={handleRefresh}
+          className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+        >
+          <RefreshCcw className="w-4 h-4 mr-2" />
+          Try Again
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 p-6 bg-gray-50 min-h-screen">
       {/* Header Section */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-3xl font-bold text-gray-900">Customers</h2>
-          <p className="mt-1  text-gray-500">
+          <p className="mt-1 text-gray-500">
             Manage and monitor customer product demands
           </p>
         </div>
@@ -169,7 +183,12 @@ const CustomerDashboard = () => {
             <UploadCSV onUpload={handleUploadComplete} />
           </Modal>
 
-          <button className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700">
+          <button
+            onClick={() => {
+              /* Add your add customer logic */
+            }}
+            className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700"
+          >
             <Plus className="w-4 h-4 mr-2" />
             Add Customer
           </button>
@@ -180,7 +199,7 @@ const CustomerDashboard = () => {
       <div className="flex flex-col sm:flex-row gap-4">
         <SearchBar
           searchQuery={searchTerm}
-          setSearchQuery={setSearchTerm}
+          setSearchQuery={handleSearch}
           placeholder="Search customers..."
           width="flex-1"
         />
@@ -197,8 +216,8 @@ const CustomerDashboard = () => {
             onClick={() => setShowFilters(!showFilters)}
             className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
           >
-            <Filter size={16} />
-            <span>Filter</span>
+            <Filter className="w-4 h-4 mr-2" />
+            Filter
           </button>
 
           {showFilters && (
@@ -207,15 +226,14 @@ const CustomerDashboard = () => {
                 {["all", "active", "away", "offline"].map((status) => (
                   <button
                     key={status}
-                    onClick={() => toggleFilter(status)} // Toggle filter status
+                    onClick={() => toggleFilter(status)}
                     className={`w-full text-left px-4 py-2 text-sm ${
-                      selectedFilters.includes(status) // Check if filter is selected
+                      selectedFilters.includes(status)
                         ? "bg-indigo-50 text-indigo-700"
                         : "text-gray-700 hover:bg-gray-100"
                     }`}
                   >
-                    {status.charAt(0).toUpperCase() + status.slice(1)}{" "}
-                    {/* Capitalize status */}
+                    {status.charAt(0).toUpperCase() + status.slice(1)}
                   </button>
                 ))}
               </div>
@@ -223,8 +241,8 @@ const CustomerDashboard = () => {
           )}
 
           <button
-            onClick={() => window.location.reload()}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+            onClick={handleRefresh}
+            className="inline-flex items-center px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200"
           >
             <RefreshCcw className="w-4 h-4 mr-2" />
             Refresh
@@ -232,161 +250,145 @@ const CustomerDashboard = () => {
         </div>
       </div>
 
-      {/* Content Section */}
-      {loading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-        </div>
-      ) : viewMode === "table" ? (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    <input
-                      type="checkbox"
-                      className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedCustomers(customers.map((c) => c.id));
-                        } else {
-                          setSelectedCustomers([]);
-                        }
-                      }}
-                    />
-                  </th>
-                  {["Customer Name", "Product Demand", "Category"].map(
-                    (header) => (
-                      <th
-                        key={header}
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                        onClick={() =>
-                          handleSort(header.toLowerCase().replace(" ", ""))
-                        }
-                      >
-                        <div className="flex items-center space-x-1">
-                          <span>{header}</span>
-                          <ArrowUpDown className="w-4 h-4" />
-                        </div>
-                      </th>
-                    )
-                  )}
-                  <th scope="col" className="relative px-6 py-3">
-                    <span className="sr-only">Actions</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {paginatedCustomers.map((customer) => (
-                  <tr key={customer.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
+      {/* Customers List (Table/Grid View) */}
+      <div className="space-y-4">
+        {viewMode === "table" ? (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
                       <input
                         type="checkbox"
                         className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                        checked={selectedCustomers.includes(customer.id)}
-                        onChange={() => handleCustomerSelect(customer.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            handleCustomerSelect(customers.map((c) => c.id));
+                          } else {
+                            handleCustomerSelect([]);
+                          }
+                        }}
                       />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center">
-                          <span className="text-purple-600 font-medium">
-                            {customer.customername?.charAt(0)?.toUpperCase()}
-                          </span>
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {customer.customername}
+                    </th>
+                    {["Customer Name", "Product Demand", "Category"].map(
+                      (header) => (
+                        <th
+                          key={header}
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                          onClick={() =>
+                            handleSort(header.toLowerCase().replace(" ", ""))
+                          }
+                        >
+                          <div className="flex items-center space-x-1">
+                            <span>{header}</span>
+                            <ArrowUpDown
+                              className={`w-4 h-4 ${
+                                sortConfig.key ===
+                                header.toLowerCase().replace(" ", "")
+                                  ? "text-purple-600"
+                                  : "text-gray-400"
+                              }`}
+                            />
+                          </div>
+                        </th>
+                      )
+                    )}
+                    <th scope="col" className="relative px-6 py-3">
+                      <span className="sr-only">Actions</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {paginatedCustomers.map((customer) => (
+                    <tr
+                      key={customer.email}
+                      className={`hover:bg-gray-50 ${
+                        selectedCustomers.includes(customer.id)
+                          ? "bg-gray-100"
+                          : "bg-white"
+                      }`}
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <input
+                          type="checkbox"
+                          className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                          checked={selectedCustomers.includes(customer.id)}
+                          onChange={() => handleCustomerSelect(customer.id)}
+                        />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0 h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center">
+                            <span className="text-purple-600 font-medium">
+                              {customer.customername?.charAt(0)?.toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900">
+                              {customer.customername}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {customer.productdemand}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
-                        {customer.category}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button className="text-gray-400 hover:text-gray-600">
-                        <MoreVertical className="w-5 h-5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {customer.productdemand}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
+                          {customer.category}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button className="text-gray-400 hover:text-gray-600">
+                          <MoreVertical className="w-5 h-5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {paginatedCustomers.map((customer) => (
-            <CustomerCard key={customer.id} customer={customer} />
-          ))}
-        </div>
-      )}
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {paginatedCustomers.map((customer) => (
+              <CustomerCard
+                key={customer.id}
+                customer={customer}
+                isSelected={selectedCustomers.includes(customer.id)}
+                onSelect={() => handleCustomerSelect(customer.id)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Pagination */}
-      <div className="">
-        <div className="flex items-center justify-between ">
-          <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm text-gray-500">
-                Showing <span>{(currentPage - 1) * itemsPerPage + 1}</span> to{" "}
-                <span>
-                  {Math.min(currentPage * itemsPerPage, sortedCustomers.length)}
-                </span>{" "}
-                of <span>{sortedCustomers.length}</span> customers
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-                className={` py-1  p-2 text-gray-600   disabled:opacity-50 disabled:cursor-not-allowed ${
-                  currentPage === 1
-                    ? " text-gray-400"
-                    : "bg-purple-600 text-white"
-                }`}
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <span className="text-sm text-gray-600">
-                Page {currentPage} of {totalPages}
-              </span>
-              <button
-                onClick={() =>
-                  setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-                }
-                disabled={currentPage === totalPages}
-                className={`ml-2 px-3 py-1  ${
-                  currentPage === totalPages
-                    ? " text-gray-400"
-                    : "bg-purple-600 text-white"
-                }`}
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-          </div>
-          <div className="sm:hidden">
-            <p className="text-sm text-gray-700">
-              Showing{" "}
-              <span className="font-medium">{paginatedCustomers.length}</span>{" "}
-              of <span className="font-medium">{filteredCustomers.length}</span>{" "}
-              customers
-            </p>
-          </div>
-        </div>
+      <div className="flex justify-center items-center gap-4">
+        <button
+          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+          className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <span className="text-sm text-gray-600">
+          Page {currentPage} of {totalPages}
+        </span>
+        <button
+          onClick={() =>
+            setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+          }
+          className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
       </div>
     </div>
   );

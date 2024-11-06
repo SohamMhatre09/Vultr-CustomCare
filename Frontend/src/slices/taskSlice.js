@@ -21,20 +21,8 @@ const taskSlice = createSlice({
         setError: (state, action) => {
             state.error = action.payload;
         },
-        addTask: (state, action) => {
-            state.tasks.push(action.payload);
-            state.error = null;
-        },
-        updateTask: (state, action) => {
-            const index = state.tasks.findIndex(task => task._id === action.payload._id);
-            if (index !== -1) {
-                state.tasks[index] = action.payload;
-                state.error = null;
-            }
-        },
-        deleteTask: (state, action) => {
-            state.tasks = state.tasks.filter(task => task._id !== action.payload);
-            state.error = null;
+        setRepresentativeTasks: (state, action) => {
+            state.tasks = action.payload;
         },
         setUserRole: (state, action) => {
             state.userRole = action.payload;

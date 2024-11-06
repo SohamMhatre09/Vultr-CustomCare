@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import {useSelector} from 'react-redux';
 import { Upload, FileText, X, CheckCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { uploadCSV } from '../../services/operations/adminServices';
@@ -8,6 +9,8 @@ const UploadCSV = ({ onUpload }) => {
   const [dragOver, setDragOver] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef(null);
+
+  const token = useSelector((state) => state.auth.token);
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -47,21 +50,26 @@ const UploadCSV = ({ onUpload }) => {
     validateAndSetFile(droppedFile);
   };
 
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!file) return;
-
+  
     try {
       const formData = new FormData();
       formData.append('file', file);
-
-      const response = await uploadCSV(formData, (progressEvent) => {
-        const percentCompleted = Math.round(
-          (progressEvent.loaded * 100) / progressEvent.total
-        );
-        setUploadProgress(percentCompleted);
-      });
-
+  
+      const response = await uploadCSV(
+        file,
+        token,
+        (progressEvent) => {
+          const percentCompleted = Math.round(
+            (progressEvent.loaded * 100) / progressEvent.total
+          );
+          setUploadProgress(percentCompleted);
+        }
+      );
+  
       toast.success('CSV uploaded successfully!');
       onUpload(response);
       resetUpload();
@@ -71,7 +79,6 @@ const UploadCSV = ({ onUpload }) => {
       resetUpload();
     }
   };
-
   const resetUpload = () => {
     setFile(null);
     setUploadProgress(0);

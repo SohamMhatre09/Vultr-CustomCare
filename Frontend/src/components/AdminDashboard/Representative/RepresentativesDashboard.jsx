@@ -1,34 +1,42 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useSelector } from "react-redux";
 import Modal from "../Modal";
 import RepresentativeTable from "./RepresentativeTable";
 import SearchBar from "../SearchBar";
 import CreateRepresentativeForm from "./CreateRepresentativeForm";
 import StatsGrid from "./StatsGrid";
+import { fetchRepresentatives } from "../../../services/operations/adminServices";
 
 const RepresentativesDashboard = () => {
-  const [representatives, setRepresentatives] = useState([
-    {
-      name: "Rep 1",
-      email: "rep1@example.com",
-      skillset: "Customer Support",
-      status: "Active",
-    },
-    {
-      name: "Rep 2",
-      email: "rep2@example.com",
-      skillset: "Technical Support",
-      status: "Active",
-    },
-  ]);
-
+  const [representatives, setRepresentatives] = useState([]); 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     skillset: "Customer Support",
     status: "Active",
   });
+
+  const {token} = useSelector((state) => state.auth.token);
+
+  useEffect(() => {
+    const loadRepresentatives = async () => {
+      try {
+        setLoading(true);
+        const reps = await fetchRepresentatives(token); // Call the service to fetch representatives
+        setRepresentatives(reps); // Set the fetched representatives data
+      } catch (err) {
+        setError("Failed to fetch representatives"); // Handle the error
+      } finally {
+        setLoading(false); // Stop the loading state
+      }
+    };
+
+    loadRepresentatives(); // Load representatives when the component mounts
+  }, [token]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -52,7 +60,7 @@ const RepresentativesDashboard = () => {
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
-      <div className=" mx-auto space-y-8">
+      <div className="mx-auto space-y-8">
         {/* Header Section */}
         <div className="flex justify-between items-center">
           <div>
@@ -79,9 +87,7 @@ const RepresentativesDashboard = () => {
                 clipRule="evenodd"
               />
             </svg>
-            <span className="hidden sm:inline">
-               Representative Credentials
-            </span>
+            <span className="hidden sm:inline">Representative Credentials</span>
             <span className="inline sm:hidden">Credentials</span>
           </button>
         </div>

@@ -2,6 +2,11 @@
 import axios from "axios";
 import { toast } from "react-hot-toast";
 import { endpoints } from "../api";
+import { setCustomers } from "../../slices/customerSlice";
+export const BASE_URL =
+  typeof import.meta.env !== "undefined" && import.meta.env.VITE_BASE_URL
+    ? import.meta.env.VITE_BASE_URL
+    : "http://localhost:3000";
 
 const {
   CREATE_TASK_API,
@@ -27,21 +32,6 @@ export const createTask = async (taskData) => {
   }
 };
 
-// Service to assign a task to a representative
-export const assignTask = async (assignmentData) => {
-  const toastId = toast.loading("Assigning task...");
-  try {
-    const response = await axios.post(ASSIGN_TASK_API, assignmentData);
-    toast.success("Task assigned successfully!", { id: toastId });
-    console.log("Task assigned:", response.data);
-    return response.data; // Return the response data
-  } catch (error) {
-    toast.error("Error assigning task", { id: toastId });
-    console.error("Error assigning task:", error);
-    throw error; // Rethrow the error for further handling
-  }
-};
-
 // Service to fetch all tasks
 export const fetchTasks = async () => {
   const toastId = toast.loading("Fetching tasks...");
@@ -58,39 +48,53 @@ export const fetchTasks = async () => {
 };
 
 // Service to fetch all representatives
-export const fetchRepresentatives = async () => {
+export const fetchRepresentatives = async (token) => {
   const toastId = toast.loading("Fetching representatives...");
   try {
-    const response = await axios.get(GET_REPRESENTATIVES_API);
+    // Send the request with the Authorization token
+    const response = await axios.get(GET_REPRESENTATIVES_API, {
+      headers: {
+        Authorization: `Bearer ${token}`, // Add the Bearer token to the headers
+      },
+    });
+
+    // Success: Show toast notification and return the data
     toast.success("Representatives fetched successfully!", { id: toastId });
     console.log("Representatives fetched:", response.data);
-    return response.data; // Return the list of representatives
+    return response.data; // Return the fetched representatives data
   } catch (error) {
+    // Handle errors: Show toast notification and log error
     toast.error("Error fetching representatives", { id: toastId });
     console.error("Error fetching representatives:", error);
-    throw error; // Rethrow the error for further handling
+    throw error; // Rethrow the error to be handled by the calling component
   }
 };
-
 // Service to fetch customers
-export const fetchCustomers = async () => {
+export const fetchCustomers = (token) => async (dispatch) => {
   const toastId = toast.loading("Fetching customers...");
+
   try {
     const response = await axios.get(
-      `${GET_CUSTOMERS_API}?filename=customer.csv`
+      `${GET_CUSTOMERS_API}?filename=customers.csv`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
     );
+    dispatch(setCustomers(response.data.data)); // Dispatch customers data
+
     toast.success("Customers fetched successfully!", { id: toastId });
-    console.log("Customers fetched:", response.data);
-    return response.data; // Return the list of customers
+    return response; // Return response if you need it elsewhere
   } catch (error) {
     toast.error("Error fetching customers", { id: toastId });
     console.error("Error fetching customers:", error);
-    throw error; // Rethrow the error for further handling
+    throw error; // Re-throw error so it can be caught in the component
   }
 };
 
 // Service to upload a CSV file
-export const uploadCSV = async (csvFile) => {
+export const uploadCSV = async (csvFile, token, onProgress) => {
   const formData = new FormData();
   formData.append("file", csvFile);
 
@@ -99,15 +103,20 @@ export const uploadCSV = async (csvFile) => {
     const response = await axios.post(UPLOAD_CSV_API, formData, {
       headers: {
         "Content-Type": "multipart/form-data",
+        Authorization: `Bearer ${token}`,
       },
+      onUploadProgress: onProgress, // Add progress tracking here
     });
+
     toast.success("CSV uploaded successfully!", { id: toastId });
     console.log("CSV uploaded:", response.data);
-    return response.data; // Return the response after upload
+    return response.data;
   } catch (error) {
-    toast.error("Error uploading CSV", { id: toastId });
     console.error("Error uploading CSV:", error);
-    throw error; // Rethrow the error for further handling
+    toast.error(error?.response?.data?.message || "Error uploading CSV", {
+      id: toastId,
+    });
+    throw error;
   }
 };
 
@@ -220,4 +229,87 @@ export const fetchDeadlines = async () => {
       ]);
     }, 500);
   });
+};
+
+export const generateScript = async (description, task, token) => {
+  console.log("Generating script with:", { description, task });
+
+  try {
+    // Simulating the API call (commented out actual API call for this example)
+    // const response = await axios.post(
+    //   `http://localhost:3000/api/admin/generate-script`,
+    //   {
+    //     description,
+    //     task,
+    //   },
+    //   {
+    //     headers: {
+    //       "Content-Type": "application/json",
+    //       'Authorization': `Bearer ${token}`
+    //     },
+    //   }
+    // );
+
+    const response = {
+      data: {
+        script: `
+          "Welcome to the Smart Home Assistant. This is your go-to device for controlling home appliances using voice commands. 
+          With compatibility for Alexa, Google Home, and Apple HomeKit, it seamlessly integrates into your smart home system. 
+          Imagine walking into your home, and with a simple voice command, the lights turn on, the thermostat adjusts to your preferred temperature, 
+          and your favorite playlist starts playing. Plus, the Smart Home Assistant learns from your habits to optimize energy usage and ensure maximum comfort."
+        `,
+      },
+    };
+
+    if (response.data && response.data.script) {
+      console.log("Script generated successfully.");
+      return response.data.script;
+    } else {
+      throw new Error("Invalid response format from server");
+    }
+  } catch (error) {
+    console.error("Script generation error:", error);
+    if (error.response) {
+      // The request was made and the server responded with a status code
+      throw new Error(
+        error.response.data?.error || `Server error: ${error.response.status}`
+      );
+    } else if (error.request) {
+      // The request was made but no response was received
+      throw new Error("No response received from server");
+    } else {
+      // Something happened in setting up the request that triggered an Error
+      throw new Error(error.message || "Failed to generate script");
+    }
+  }
+};
+
+export const generateKeywords = async (script, task) => {
+  try {
+    // Simulating the API call (commented out actual API call for this example)
+    // const response = await axios.post(`${BASE_URL}/generate-keywords`, {
+    //   script,
+    //   task,
+    // });
+
+    const response = {
+      data: {
+        "personal Keywords":
+          "smart home, automation, voice control, smart assistant",
+        "product keywords":
+          "Alexa, Google Home, Apple HomeKit, energy saving, thermostat",
+      },
+    };
+
+    // Split the keywords from the response
+    return {
+      personalKeywords: response.data["personal Keywords"].split(", "),
+      productKeywords: response.data["product keywords"].split(", "),
+    };
+  } catch (error) {
+    console.error("Keyword generation error:", error);
+    throw new Error(
+      error.response?.data?.error || "Failed to generate keywords"
+    );
+  }
 };
