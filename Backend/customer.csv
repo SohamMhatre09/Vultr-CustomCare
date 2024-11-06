@@ -1,5 +1,22 @@
-customername,productdemand,category
-manthan,samsung S24 Ultra,Mobile
-soham,sony bravia 4k oled,TV
-pragati,apple macbook pro,Laptop
-omkar,smart 450l double door fridge,Refrigerator
+customername,productdemand,category,email
+manthan,samsung S24 Ultra,Mobile,a@gmail.com
+soham,sony bravia 4k oled,TV,b@gmail.com
+pragati,apple macbook pro,Laptop,c@gmail.com
+omkar,smart 450l double door fridge,Refrigerator,d@gmail.com
+raj,iphone 15 pro max,Mobile,e@gmail.com
+kunal,lg oled c3 55inch,TV,f@gmail.com
+varun,dell xps 15,Laptop,g@gmail.com
+sahil,whirlpool 500l side by side,Refrigerator,h@gmail.com
+priya,oneplus 12,Mobile,i@gmail.com
+amit,samsung neo qled 65inch,TV,j@gmail.com
+neha,hp spectre x360,Laptop,k@gmail.com
+rahul,samsung french door refrigerator,Refrigerator,l@gmail.com
+shreya,google pixel 8 pro,Mobile,m@gmail.com
+aditya,tcl qled 75inch,TV,n@gmail.com
+kavita,lenovo thinkpad x1,Laptop,o@gmail.com
+rohan,lg inverter refrigerator,Refrigerator,p@gmail.com
+anita,motorola edge 40,Mobile,q@gmail.com
+vijay,mi qled tv 55inch,TV,r@gmail.com
+deepak,asus rog gaming laptop,Laptop,s@gmail.com
+meera,haier side by side refrigerator,Refrigerator,t@gmail.com
+manthan,Tube light,electronic gadget,a@gmail.com
